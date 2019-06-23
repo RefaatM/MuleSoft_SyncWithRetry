@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd">
+	<sub-flow name="GetDuration" doc:id="40446995-55bf-4a0a-9754-5dbee6cd3480" >
+		<os:contains doc:name="Contains" doc:id="57930fe3-81f8-4fd8-8fde-ee887780c41b" key="LastQueriedTime" target="LastQueriedTimeExists"/>
+		<choice doc:name="Choice" doc:id="4a4e90ce-46eb-4b91-a5d4-e75f79263a9d" >
+			<when expression="#[vars.LastQueriedTimeExists]">
+				<os:retrieve doc:name="Retrieve" doc:id="4bf70005-9ec5-4863-b1ef-d6a781f85ef5" key="LastQueriedTime" target="LastQueriedDateTime">
+		</os:retrieve>
+				<logger level="INFO" doc:name="Logger" doc:id="19f5e8d7-971e-4262-9b18-2b2ad5310b17" message="#['Last Queried date and Time as  $(vars.LastQueriedDateTime default now())']" />
+				<java:invoke-static doc:name="Invoke static Calc Duration" doc:id="ef10848e-9b1c-465f-a2b3-0d6eabc7bba4" outputMimeType="application/java" target="Duration" class="sfsynchwithretrypattern.StaticHelpers" method="getDuration(java.time.ZonedDateTime)">
+					<java:args ><![CDATA[#[{lastTime: vars.LastQueriedDateTime}]]]></java:args>
+				</java:invoke-static>
+				<logger level="INFO" doc:name="Logger" doc:id="e22b58a2-1a71-4518-9a3d-84a092824d9f" message="#['Duration is  $(vars.Duration default 0)']"/>
+			</when>
+			<otherwise >
+				<set-variable doc:name="SetFromTime In MInutes" doc:id="19b09592-4529-4cda-9a94-59c47daed212" variableName="Duration" value="60" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="CallRecordsProcessing" doc:id="8af97b06-8b91-4a22-8b2b-67c8568d6ce1" >
+		<choice doc:name="Check if there are new updated records" doc:id="68705cd4-67b7-4966-8e15-ab811e7bbe62">
+			<when expression="#[!isEmpty(payload)]">
+				<flow-ref doc:name="Process Records" doc:id="35b13e35-0831-4ad9-82fa-ab73ab95bd7b" name="ProcessRecords" />
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="557f1972-ff3c-409b-b0f1-637b5df9be5f" message="No IDs found" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<flow name="MainFlow" doc:id="e40f5dd4-4109-477b-b476-d4cdc8d3c09e" >
+		<scheduler doc:name="MainScheduler" doc:id="cd6875e0-2474-4709-829f-15418a981cde" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="10" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="2d41cf18-b009-434a-9e66-3b99ac3f8d05" message="#['SF Synch with Retry pattern started at: $(now()) ']"/>
+		<flow-ref doc:name="GetDuration" doc:id="85f3873e-2595-4252-b7bb-9a0c4d1788ee" name="GetDuration" />
+		<salesforce:get-updated doc:name="Get Updated Accounts Ids" doc:id="6e90b909-950a-4502-90a7-71cab603f44d" config-ref="Salesforce_Config" type="Account" duration="#[vars.Duration]">
+			<reconnect frequency="20000" />
+		</salesforce:get-updated>
+		<ee:transform doc:name="convert to list for query" doc:id="a7179935-72e2-4210-a66b-d5adfc8330f4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.Ids map ("(Id = '" ++ $ ++ "')") joinBy " OR "]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Call Records Processing" doc:id="7cb6456a-b47b-4030-a05e-660f439fa863" name="CallRecordsProcessing" />
+		<logger level="INFO" doc:name="Logger" doc:id="923cf524-5b82-4d93-833f-6e55085e8d76" category="MainFlow" message="Done Processing"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="37a98310-a6dd-4909-9a0e-c988b4e12bf1" >
+				<logger level="ERROR" doc:name="Logger" doc:id="e0ac9730-303a-42b5-b31f-5d76c302ac82" message="#[error.detailedDescription]"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>

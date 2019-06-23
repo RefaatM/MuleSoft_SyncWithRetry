@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<sub-flow name="ProcessRecords" doc:id="ebb9be3f-f90c-4869-990b-9e72731b0a5d" >
+		<salesforce:query doc:name="Get all the accouts with passed IDs" doc:id="1d8e59d7-51ed-40c6-a089-a563a72d0dcc" config-ref="Salesforce_Config" target="SFRecords">
+				<salesforce:salesforce-query>Select Id, Name From Account where  :criteria</salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	criteria : payload
+}]]]></salesforce:parameters>
+			</salesforce:query>
+		<foreach doc:name="For Each" doc:id="ced2a299-20da-4f54-8005-6528c27dea22" rootMessageVariableName="Ids" collection="#[vars.SFRecords]">
+			<logger level="INFO" doc:name="Logger" doc:id="a0a58def-0445-450b-bc9f-c42062dad6ac" message='#["Processing Account ID" ++ payload.Id]]' />
+			<set-variable value="#[payload[0]]" doc:name="Set SFID" doc:id="5d675919-7a7b-4ae6-a3e2-83a018bde161" variableName="SFID"/>
+			<db:select doc:name="Get Record in DB" doc:id="10c300e5-4be1-4eb7-a219-301108e993a0" config-ref="Database_Config" target="DBRecordExists">
+				<db:sql>Select count(idAccounts) from accounts where salesforceAccNum = :SFID</db:sql>
+				<db:input-parameters><![CDATA[#[SFID: vars.SFID]]]></db:input-parameters>
+			</db:select>
+			<set-variable value="#[payload[2]]" doc:name="Set Name" doc:id="86f79cca-edab-485d-879d-efa54a410f06" variableName="AccName"/>
+			<choice doc:name="ChoiceIs there a Record in DB " doc:id="b98c9c11-47ca-47b7-aa27-3d1ff6a40ede" >
+				<when expression="#[vars.DBRecordExists[0][0] &gt; 0]">
+					<db:update doc:name="Update" doc:id="31b7fa2b-f7bc-4085-bb94-8f03e494db47" config-ref="Database_Config">
+						<db:sql >UPDATE accounts
+SET  name = :name
+WHERE salesforceAccNum = :sfID</db:sql>
+						<db:input-parameters ><![CDATA[#[{
+name: vars.AccName,
+sfID: vars.SFID
+}]]]></db:input-parameters>
+					</db:update>
+				</when>
+				<otherwise >
+					<db:insert doc:name="Insert" doc:id="6f788ce3-76d8-4167-9386-6a25a071694d" config-ref="Database_Config">
+						<db:sql >INSERT INTO accounts
+(name,salesforceAccNum)
+VALUES (:name,:sfID);
+</db:sql>
+						<db:input-parameters ><![CDATA[#[{
+name: vars.AccName,
+sfID: vars.SFID
+}]]]></db:input-parameters>
+					</db:insert>
+					<flow-ref doc:name="StoreRetryAccounts" doc:id="660942bb-6cd3-44aa-b05d-29fb0727c754" name="StoreRetryAccounts"/>
+				</otherwise>
+			</choice>
+		</foreach>
+	</sub-flow>
+	<sub-flow name="StoreRetryAccounts" doc:id="2dcf3b89-d089-4425-8430-41613836839c" >
+		<os:contains doc:name="Contains" doc:id="7beff5aa-d909-4e14-8d0f-fcd6d998cb55" key="RetryKeys" target="KeyExists"/>
+		<choice doc:name="Choice" doc:id="7084fd8f-f29d-4aa8-a130-0af47a61117d" >
+			<when expression="#[vars.KeyExists]">
+				<os:retrieve doc:name="Retrieve" doc:id="955f5d31-beb5-40cb-affa-44ee87ebb388" key="RetryKeys" target="RetryKeys" />
+				<set-variable value="#[vars.RetryKeys + vars.SFID]" doc:name="Set Variable" doc:id="ea58a08d-45fb-4569-b9bd-78f3f37f36fe" variableName="RetryKeys" />
+			</when>
+			<otherwise >
+				<set-variable value="#[[vars.SFID]]" doc:name="Set Variable" doc:id="bdb10293-f545-4c4d-91ab-74da6bafa1fb" variableName="RetryKeys"/>
+			</otherwise>
+		</choice>
+		<os:store doc:name="Store" doc:id="4a5c80c5-74c4-4e10-ad1c-4d16534b2db8" key="RetryKeys">
+			<os:value><![CDATA[#[vars.RetryKeys]]]></os:value>
+		</os:store>
+	</sub-flow>
+</mule>

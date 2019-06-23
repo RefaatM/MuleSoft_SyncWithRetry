@@ -1,0 +1,13 @@
+sfdc:
+  username: "moustafa.refaat@slalom.com"
+  password: "$Ind1@na5!"
+  token: "RYdn2FztF5eX3e9yqMvbadT9H"
+  
+  
+
+db:
+  host: "localhost"
+  port: "3306"
+  user: "root"
+  password: "My$qlP@ss"
+  database: "synchsample"   

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="20e6a4bb-912d-420b-be3b-59605f9109a1" file="config.yaml" />
+	<configuration doc:name="Configuration" doc:id="8262c441-caf4-46e2-96ed-295e64492b5e" defaultErrorHandler-ref="GeneralError_Handler" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="a2236fc7-28bc-44f2-b07a-3adbf61ae920" >
+		<salesforce:cached-basic-connection username="${sfdc.username}" password="${sfdc.password}" securityToken="${sfdc.token}" />
+	</salesforce:sfdc-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="d58e95a2-19d6-42b9-ac14-3d72a044f198" >
+		<db:my-sql-connection host="${db.host}" port="${db.port}" user="${db.user}" password="${db.password}" database="${db.database}" />
+	</db:config>
+	<error-handler name="GeneralError_Handler" doc:id="8caa1dbf-ec4a-4a41-8717-cf3156a742d6" >
+		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="cad74453-52e1-4cfb-b54c-f5e711547fc1" >
+			<logger level="INFO" doc:name="Logger" doc:id="6a3cafc8-0b95-4558-861d-38afe364fd03" message="#[Payload]"/>
+		</on-error-continue>
+	</error-handler>
+	
+	
+</mule>

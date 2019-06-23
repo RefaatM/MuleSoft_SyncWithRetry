@@ -1,0 +1,10 @@
+{
+  "sampleData": {
+    "a7179935-72e2-4210-a66b-d5adfc8330f4": {
+      "payload": "sample_data/unknown.dwl"
+    },
+    "ef10848e-9b1c-465f-a2b3-0d6eabc7bba4": {
+      "vars-LastQueriedDateTime": "sample_data/serializable.dwl"
+    }
+  }
+}
